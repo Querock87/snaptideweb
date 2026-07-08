@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snaptide — Atrapa cualquier video en segundos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0B1E2D;
+    --bg-surface:#122E40;
+    --bg-surface-2:#16374B;
+    --tide:#3FD8C4;
+    --tide-soft:rgba(63,216,196,0.14);
+    --kelp:#22C55E;
+    --kelp-dark:#16A34A;
+    --sand:#F2C879;
+    --text-hi:#EAF6F6;
+    --text-mid:#9FC0C4;
+    --text-dim:#6C8B90;
+    --error:#F87171;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(63,216,196,0.16), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 85% 15%, rgba(242,200,121,0.08), transparent 60%),
+      var(--bg-deep);
+    font-family:'Inter', sans-serif;
+    color:var(--text-hi);
+    min-height:100vh;
+  }
+
+  .font-display{ font-family:'Space Grotesk', sans-serif; }
+  .font-mono{ font-family:'JetBrains Mono', monospace; }
+
+  .ad-block{
+    border:1.5px dashed rgba(159,192,196,0.28);
+    background:rgba(255,255,255,0.015);
+    border-radius:14px;
+    color:var(--text-dim);
+    font-family:'JetBrains Mono', monospace;
+    letter-spacing:0.06em;
+  }
+
+  .search-shell{
+    background:var(--bg-surface);
+    border:1.5px solid rgba(63,216,196,0.18);
+    transition:box-shadow .35s ease, border-color .35s ease;
+  }
+  .search-shell:focus-within{
+    border-color:rgba(63,216,196,0.55);
+    box-shadow:0 0 0 4px var(--tide-soft), 0 0 40px -8px rgba(63,216,196,0.35);
+  }
+
+  input#video-url::placeholder{ color:var(--text-dim); }
+
+  .platform-icon{
+    color:var(--text-mid);
+    transition:color .25s ease, transform .25s ease;
+  }
+  .platform-icon:hover{
+    color:var(--tide);
+    transform:translateY(-3px);
+  }
+
+  .btn-download{
+    background:linear-gradient(135deg, var(--tide), #29B8A8);
+    color:#06222080;
+    box-shadow:0 8px 24px -6px rgba(63,216,196,0.45);
+    transition:transform .2s ease, box-shadow .2s ease, filter .2s ease, opacity .2s ease;
+  }
+  .btn-download:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 32px -6px rgba(63,216,196,0.55);
+    filter:brightness(1.05);
+  }
+  .btn-download:active{ transform:translateY(0); }
+  .btn-download:disabled{
+    opacity:0.55;
+    cursor:not-allowed;
+    transform:none;
+  }
+
+  .btn-ready{
+    background:linear-gradient(135deg, var(--kelp), var(--kelp-dark));
+    box-shadow:0 8px 24px -6px rgba(34,197,94,0.45);
+    transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .btn-ready:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 32px -6px rgba(34,197,94,0.55);
+    filter:brightness(1.05);
+  }
+
+  .reveal{
+    max-height:0;
+    opacity:0;
+    overflow:hidden;
+    transform:translateY(-8px);
+    transition:max-height .55s cubic-bezier(.4,0,.2,1), opacity .45s ease, transform .45s ease;
+  }
+  .reveal.is-open{
+    max-height:600px;
+    opacity:1;
+    transform:translateY(0);
+  }
+
+  .spinner{
+    width:44px; height:44px;
+    border-radius:50%;
+    border:3px solid rgba(63,216,196,0.18);
+    border-top-color:var(--tide);
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .tide-wave{
+    position:absolute;
+    left:0; right:0; bottom:-10px;
+    width:200%;
+    height:120px;
+    animation:tide-drift 14s linear infinite;
+    opacity:0.5;
+  }
+  @keyframes tide-drift{
+    from{ transform:translateX(0); }
+    to{ transform:translateX(-50%); }
+  }
+
+  .thumb-placeholder{
+    background:linear-gradient(135deg, var(--bg-surface-2), var(--bg-surface));
+    border:1px solid rgba(63,216,196,0.18);
+  }
+  #video-thumb{
+    background:var(--bg-surface-2);
+  }
+
+  select#quality{
+    background:var(--bg-surface-2);
+    border:1px solid rgba(159,192,196,0.25);
+    color:var(--text-hi);
+    font-family:'JetBrains Mono', monospace;
+  }
+
+  .shake{ animation:shake .4s ease; }
+  @keyframes shake{
+    10%,90%{ transform:translateX(-1px); }
+    20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-4px); }
+    40%,60%{ transform:translateX(4px); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .tide-wave{ animation:none; }
+    .spinner{ animation:spin 1.2s linear infinite; }
+  }
+</style>
+</head>
+<body class="antialiased">
+
+  <div class="relative overflow-hidden">
+    <svg class="tide-wave" viewBox="0 0 1440 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,100 C240,180 480,20 720,100 C960,180 1200,20 1440,100 L1440,200 L0,200 Z" fill="#3FD8C4" fill-opacity="0.06"/>
+      <path d="M1440,100 C1680,180 1920,20 2160,100 C2400,180 2640,20 2880,100 L2880,200 L1440,200 Z" fill="#3FD8C4" fill-opacity="0.06"/>
+    </svg>
+
+    <main class="relative z-10 max-w-2xl mx-auto px-6 pt-16 pb-10 flex flex-col items-center text-center">
+
+      <span class="font-mono text-xs tracking-widest text-[var(--tide)] uppercase mb-4">
+        TikTok · YouTube · Instagram · Facebook · X
+      </span>
+
+      <h1 class="font-display text-5xl sm:text-6xl font-700 tracking-tight mb-3">
+        Snap<span style="color:var(--tide)">tide</span>
+      </h1>
+      <p class="text-[var(--text-mid)] text-base sm:text-lg mb-10 max-w-md">
+        Pega el enlace, deja que la corriente lo traiga y guarda tu video en segundos.
+      </p>
+
+      <div class="ad-block w-full h-16 flex items-center justify-center text-[11px] mb-8">
+        Bloque de Anuncios Publicitarios
+      </div>
+
+      <form id="download-form" class="w-full">
+        <div class="search-shell w-full rounded-2xl p-2 flex flex-col sm:flex-row items-stretch gap-2">
+          <input
+            id="video-url"
+            type="url"
+            placeholder="Pega aquí el enlace del video..."
+            class="flex-1 bg-transparent outline-none px-4 py-4 text-[15px] text-[var(--text-hi)]"
+            autocomplete="off"
+          >
+          <button
+            id="btn-download"
+            type="submit"
+            class="btn-download font-display font-600 rounded-xl px-8 py-4 text-[15px] whitespace-nowrap"
+          >
+            Descargar
+          </button>
+        </div>
+        <p id="input-error" class="text-left text-xs text-[var(--error)] mt-2 ml-1 hidden">
+          Pega un enlace válido para continuar.
+        </p>
+      </form>
+
+      <div class="flex items-center justify-center gap-6 mt-8">
+        <svg class="platform-icon w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M14 3v10.2a3.4 3.4 0 1 1-2.6-3.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M14 3c.4 2.4 2.1 4 4.6 4.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <svg class="platform-icon w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="3" y="6" width="18" height="12" rx="4"/>
+          <path d="M10.5 9.5l4.5 2.5-4.5 2.5z" fill="currentColor" stroke="none"/>
+        </svg>
+        <svg class="platform-icon w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M13.8 21v-6.8h2.1l.3-2.6h-2.4V9.9c0-.75.2-1.26 1.28-1.26h1.37V5.9c-.24-.03-1.05-.1-2-.1-1.98 0-3.33 1.2-3.33 3.42v1.9H9v2.6h2.1V21" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <svg class="platform-icon w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M5 5l14 14M19 5L5 19" stroke-linecap="round"/>
+        </svg>
+        <svg class="platform-icon w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="5"/>
+          <circle cx="12" cy="12" r="3.6"/>
+          <circle cx="16.6" cy="7.4" r="0.9" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+
+      <div id="processing-section" class="reveal w-full mt-10">
+        <div class="rounded-2xl p-8 flex flex-col items-center gap-4" style="background:var(--bg-surface); border:1px solid rgba(63,216,196,0.12)">
+          <div class="spinner"></div>
+          <p class="font-mono text-sm text-[var(--text-mid)]">Procesando tu video...</p>
+        </div>
+      </div>
+
+      <div id="error-section" class="reveal w-full mt-10">
+        <div class="rounded-2xl p-6 text-left flex items-start gap-3" style="background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.3)">
+          <span class="text-[var(--error)] font-mono text-sm mt-0.5">⚠</span>
+          <p id="error-message" class="text-sm text-[var(--text-hi)]">No se pudo procesar el video.</p>
+        </div>
+      </div>
+
+      <div id="ready-section" class="reveal w-full mt-10">
+        <div class="rounded-2xl p-6 text-left" style="background:var(--bg-surface); border:1px solid rgba(63,216,196,0.15)">
+          <div class="flex gap-4 items-center">
+            <img id="video-thumb" src="" alt="Miniatura del video" class="thumb-placeholder w-28 h-20 object-cover rounded-lg shrink-0">
+            <div class="min-w-0">
+              <p id="video-title" class="font-display font-600 text-[15px] line-clamp-2">Título del video</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-stretch gap-3 mt-6">
+            <select id="quality" class="rounded-xl px-4 py-3 text-sm flex-1">
+              <option value="">Calidad original</option>
+            </select>
+            <a id="btn-download-now" href="#" target="_blank" rel="noopener noreferrer"
+              class="btn-ready font-display font-700 rounded-xl px-8 py-3 text-[15px] text-[#062210] whitespace-nowrap text-center">
+              Descargar Ahora
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="ad-block w-full h-16 flex items-center justify-center text-[11px] mt-10">
+        Bloque de Anuncios Publicitarios
+      </div>
+
+    </main>
+  </div>
+
+  <footer class="max-w-2xl mx-auto px-6 pb-12 pt-4">
+    <div class="ad-block w-full h-16 flex items-center justify-center text-[11px] mb-6">
+      Bloque de Anuncios Publicitarios
+    </div>
+    <p class="text-center text-xs text-[var(--text-dim)] font-mono">
+      &copy; 2026 Snaptide. Todos los derechos reservados.
+    </p>
+  </footer>
+
+<script>
+  const form              = document.getElementById('download-form');
+  const input             = document.getElementById('video-url');
+  const inputError        = document.getElementById('input-error');
+  const btnDownload       = document.getElementById('btn-download');
+  const processingSection = document.getElementById('processing-section');
+  const errorSection      = document.getElementById('error-section');
+  const errorMessage      = document.getElementById('error-message');
+  const readySection      = document.getElementById('ready-section');
+  const videoThumb        = document.getElementById('video-thumb');
+  const videoTitle        = document.getElementById('video-title');
+  const qualitySelect     = document.getElementById('quality');
+  const btnDownloadNow    = document.getElementById('btn-download-now');
+
+  function closeAll(){
+    processingSection.classList.remove('is-open');
+    errorSection.classList.remove('is-open');
+    readySection.classList.remove('is-open');
+  }
+
+  function showError(message){
+    errorMessage.textContent = message;
+    errorSection.classList.add('is-open');
+  }
+
+  // Rellena el selector de calidad si el backend devuelve varias opciones
+  // (data.formats = { "1080p": "https://...", "720p": "https://..." }).
+  // Si solo llega data.download_url, se deja una única opción "original".
+  function populateQualityOptions(data){
+    qualitySelect.innerHTML = '';
+
+    if (data.formats && typeof data.formats === 'object' && Object.keys(data.formats).length){
+      Object.entries(data.formats).forEach(([label, url]) => {
+        const opt = document.createElement('option');
+        opt.value = url;
+        opt.textContent = label;
+        qualitySelect.appendChild(opt);
+      });
+      qualitySelect.disabled = false;
+      btnDownloadNow.href = qualitySelect.value;
+    } else {
+      const opt = document.createElement('option');
+      opt.value = data.download_url || '#';
+      opt.textContent = 'Calidad original';
+      qualitySelect.appendChild(opt);
+      qualitySelect.disabled = true;
+      btnDownloadNow.href = data.download_url || '#';
+    }
+  }
+
+  qualitySelect.addEventListener('change', () => {
+    btnDownloadNow.href = qualitySelect.value;
+  });
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    const urlInput = input.value.trim();
+
+    if (!urlInput || !urlInput.startsWith('http')){
+      inputError.classList.remove('hidden');
+      input.parentElement.parentElement.classList.add('shake');
+      setTimeout(() => input.parentElement.parentElement.classList.remove('shake'), 400);
+      return;
+    }
+    inputError.classList.add('hidden');
+
+    closeAll();
+    btnDownload.disabled = true;
+    requestAnimationFrame(() => processingSection.classList.add('is-open'));
+
+    try {
+      // Conexión con el backend (main.py) que hace la extracción real
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok){
+        throw new Error(data.detail || 'Error al procesar el video');
+      }
+
+      videoTitle.textContent = data.title || 'Video listo';
+      videoThumb.src = data.thumbnail || '';
+      populateQualityOptions(data);
+
+      processingSection.classList.remove('is-open');
+      setTimeout(() => readySection.classList.add('is-open'), 200);
+
+    } catch (error) {
+      processingSection.classList.remove('is-open');
+      setTimeout(() => showError('Ocurrió un problema: ' + error.message), 200);
+    } finally {
+      btnDownload.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
