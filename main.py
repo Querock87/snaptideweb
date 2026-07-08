@@ -7,7 +7,6 @@ import yt_dlp
 
 app = FastAPI()
 
-# Esto permite que tu diseño visual se conecte con el motor Python sin bloqueos
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,11 +20,19 @@ class VideoRequest(BaseModel):
 
 @app.post("/api/download")
 async def get_video_info(request: VideoRequest):
-    # Configuración inteligente para extraer videos (y TikTok sin marca de agua)
+    # Configuración avanzada para saltar bloqueos de YouTube ("Sign in to confirm you're not a bot")
     ydl_opts = {
         'format': 'best',
         'quiet': True,
         'no_warnings': True,
+        # Estas 3 líneas le dicen a YouTube que somos un navegador web real y corriente
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
+        'nocheckcertificate': True,
+        'geo_bypass': True,
     }
     
     try:
@@ -42,9 +49,12 @@ async def get_video_info(request: VideoRequest):
                 "download_url": video_url
             }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Simplificamos el error en pantalla si algo falla
+        error_msg = str(e)
+        if "Sign in to confirm" in error_msg:
+            error_msg = "YouTube requiere verificación. Intenta con otro enlace o red social por el momento."
+        raise HTTPException(status_code=500, detail=error_msg)
 
-# Le dice al servidor que muestre tu diseño de Claude al abrir la página
 @app.get("/")
 async def read_index():
     return FileResponse('index.html')
@@ -53,3 +63,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
