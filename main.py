@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 REEMPLAZA ESTO: Asegúrate de pegar bien tu clave sin la "T" extra
+# 🔑 REEMPLAZA ESTO: Tu clave limpia de RapidAPI
 RAPIDAPI_KEY = "d4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
 
 class VideoRequest(BaseModel):
@@ -25,11 +25,11 @@ class VideoRequest(BaseModel):
 async def get_video_info(request: VideoRequest):
     url_usuario = request.url.strip()
     
-    api_url = "https://auto-download-all-in-one.p.rapidapi.com/v1/social/autolink"
+    api_url = "https://rapidapi.com"
     
     headers = {
         "x-rapidapi-key": RAPIDAPI_KEY.replace('"', '').replace("'", "").strip(),
-        "x-rapidapi-host": "auto-download-all-in-one.p.rapidapi.com",
+        "x-rapidapi-host": "://rapidapi.com",
         "Content-Type": "application/json"
     }
     
@@ -46,55 +46,29 @@ async def get_video_info(request: VideoRequest):
             
         data = response.json()
         
-        # 🕵️‍♂️ BÚSQUEDA INTELIGENTE DE ENLACES (Proxy Adaptable)
+        title = data.get("title") or data.get("caption") or data.get("description") or "Video Detectado"
+        thumbnail = data.get("thumbnail") or data.get("cover") or "https://placeholder.com"
+        
+        # Extraemos la lista de calidades nativas que nos provee la API
+        lista_calidades = data.get("medias") or []
         download_url = None
-        title = "Video Detectado"
-        thumbnail = "https://placeholder.com"
         
-        # Escenario 1: Si la API devuelve los enlaces en una lista llamada 'medias'
-        if "medias" in data and isinstance(data["medias"], list) and len(data["medias"]) > 0:
-            # Buscamos el enlace dentro del primer objeto de la lista
-            primer_medio = data["medias"][0]
-            download_url = primer_medio.get("url") or primer_medio.get("video")
-        
-        # Escenario 2: Si la API mete la información dentro de un contenedor llamado 'result' o 'data'
-        elif "result" in data and isinstance(data["result"], dict):
-            res = data["result"]
-            download_url = res.get("video") or res.get("url") or res.get("download_url")
-            title = res.get("title") or res.get("description") or title
-            thumbnail = res.get("thumbnail") or res.get("cover") or thumbnail
-            
-            # Revisamos si dentro de result también venía la lista de medias
-            if not download_url and "medias" in res and isinstance(res["medias"], list) and len(res["medias"]) > 0:
-                download_url = res["medias"][0].get("url")
-                
-        # Escenario 3: Si la API entrega los datos de forma directa en la raíz
+        if isinstance(lista_calidades, list) and len(lista_calidades) > 0:
+            download_url = lista_calidades[0].get("url")
         else:
-            download_url = data.get("video") or data.get("url") or data.get("download_url")
-            
-        # Rescatamos título o miniatura genéricos si están en la raíz
-        title = data.get("title") or data.get("description") or data.get("caption") or title
-        thumbnail = data.get("thumbnail") or data.get("cover") or thumbnail
+            download_url = data.get("url") or data.get("video")
 
-        # 🚨 Si después de buscar por todos lados no hay URL, te mostramos la respuesta real para saber qué campos usa
         if not download_url:
-            # Cortamos el texto por si es muy largo
-            snippet = str(data)[:150]
-            raise HTTPException(
-                status_code=422, 
-                detail=f"Enlace no hallado en la respuesta. Estructura recibida: {snippet}"
-            )
+            raise HTTPException(status_code=400, detail="No se encontró un enlace .mp4 en la respuesta.")
             
+        # Retornamos el paquete completo de datos hacia la interfaz
         return {
             "title": title,
             "thumbnail": thumbnail,
-            "download_url": download_url
+            "download_url": download_url,
+            "medias": lista_calidades # <-- Enviamos la colección de calidades
         }
         
-    except requests.exceptions.JSONDecodeError:
-        raise HTTPException(status_code=502, detail="Error de formato: Respuesta ilegible de la API.")
-    except HTTPException as http_err:
-        raise http_err
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo del sistema: {str(e)}")
 
@@ -106,3 +80,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
