@@ -1,4 +1,4 @@
-import os
+@import os
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,6 +77,10 @@ async def get_video_info(request: VideoRequest):
         raise http_err
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo del sistema: {str(e)}")
+# NUEVA RUTA: Entrega el logo de la pestaña al navegador de forma segura
+@app.get("/favicon.png")
+async def get_favicon():
+    return FileResponse('favicon.png')
 
 @app.get("/")
 async def read_index():
