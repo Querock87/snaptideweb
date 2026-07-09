@@ -1,4 +1,4 @@
-@import os
+import os
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,11 +25,11 @@ class VideoRequest(BaseModel):
 async def get_video_info(request: VideoRequest):
     url_usuario = request.url.strip()
     
-    api_url = "https://auto-download-all-in-one.p.rapidapi.com/v1/social/autolink"
+    api_url = "https://rapidapi.com"
     
     headers = {
         "x-rapidapi-key": RAPIDAPI_KEY.replace('"', '').replace("'", "").strip(),
-        "x-rapidapi-host": "auto-download-all-in-one.p.rapidapi.com",
+        "x-rapidapi-host": "://rapidapi.com",
         "Content-Type": "application/json"
     }
     
@@ -38,7 +38,6 @@ async def get_video_info(request: VideoRequest):
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=25)
         
-        # Si la respuesta no es exitosa, arrojamos el estatus explícito
         if response.status_code != 200:
             raise HTTPException(
                 status_code=response.status_code, 
@@ -47,15 +46,12 @@ async def get_video_info(request: VideoRequest):
             
         data = response.json()
         
-        # Extracción segura según la documentación oficial de la API
         title = data.get("title") or data.get("caption") or data.get("description") or "Video Detectado"
         thumbnail = data.get("thumbnail") or data.get("cover") or "https://placeholder.com"
         
-        # Estructura del formato nativo de la API: data["medias"] es una lista de diccionarios
         lista_calidades = data.get("medias") or []
         download_url = data.get("url") or data.get("video")
         
-        # Si la lista contiene elementos, extraemos de forma segura el primer enlace como principal
         if isinstance(lista_calidades, list) and len(lista_calidades) > 0:
             primer_elemento = lista_calidades[0]
             if isinstance(primer_elemento, dict):
@@ -68,7 +64,7 @@ async def get_video_info(request: VideoRequest):
             "title": title,
             "thumbnail": thumbnail,
             "download_url": download_url,
-            "medias": lista_calidades  # Mandamos la lista limpia a la interfaz
+            "medias": lista_calidades
         }
         
     except requests.exceptions.JSONDecodeError:
@@ -77,11 +73,13 @@ async def get_video_info(request: VideoRequest):
         raise http_err
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo del sistema: {str(e)}")
-# NUEVA RUTA: Entrega el logo de la pestaña al navegador de forma segura
+
+# RUTA DEL FAVICON: Entrega el logo de la pestaña al navegador
 @app.get("/favicon.png")
 async def get_favicon():
     return FileResponse('favicon.png')
 
+# RUTA DEL INDEX: Muestra tu página web principal
 @app.get("/")
 async def read_index():
     return FileResponse('index.html')
