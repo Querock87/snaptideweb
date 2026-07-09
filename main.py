@@ -15,8 +15,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 REEMPLAZA ESTO: Pega aquí adentro tu clave secreta "X-RapidAPI-Key"
-RAPIDAPI_KEY = "Td4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
+# 🔑 REEMPLAZA ESTO: Pega aquí adentro tu clave exacta sin modificar nada más
+RAPIDAPI_KEY = "d4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
 
 class VideoRequest(BaseModel):
     url: str
@@ -25,12 +25,14 @@ class VideoRequest(BaseModel):
 async def get_video_info(request: VideoRequest):
     url_usuario = request.url.strip()
     
-    # 🎯 DATOS EXACTOS QUE ENCONTRASTE EN LA PÁGINA DE LA API
-    api_url = "https://auto-download-all-in-one.p.rapidapi.com/v1/social/autolink"
+    api_url = "https://rapidapi.com"
+    
+    # Limpiamos exhaustivamente la clave para eliminar cualquier espacio fantasma
+    llave_limpia = RAPIDAPI_KEY.replace('"', '').replace("'", "").strip()
     
     headers = {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": "auto-download-all-in-one.p.rapidapi.com",
+        "x-rapidapi-key": llave_limpia,
+        "x-rapidapi-host": "://rapidapi.com",
         "Content-Type": "application/json"
     }
     
@@ -41,31 +43,40 @@ async def get_video_info(request: VideoRequest):
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=25)
         
+        if response.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="RapidAPI rechazó la clave en producción. Verifica que esté bien copiada en tu archivo main.py de GitHub."
+            )
+            
         if response.status_code != 200:
             raise HTTPException(
                 status_code=response.status_code, 
-                detail=f"La API respondió con error {response.status_code}. Verifica tu clave de RapidAPI."
+                detail=f"La API respondió con error de sistema (Código {response.status_code})."
             )
             
         data = response.json()
         
-        # Analizamos la respuesta típica de este endpoint específico
-        # Normalmente devuelven un objeto con la información del video
-        title = data.get("title") or data.get("caption") or "Video Descargado"
+        # Mapeo preciso según la estructura de respuesta exitosa de la API
+        title = data.get("title") or data.get("caption") or data.get("description") or "Video Detectado"
         thumbnail = data.get("thumbnail") or data.get("cover") or "https://placeholder.com"
         
-        # Buscamos el enlace del video dentro de la respuesta (puede venir directo o en una lista)
-        download_url = data.get("video") or data.get("url") or data.get("download_url")
+        # Analizamos la lista 'medias' donde vienen los enlaces de descarga directa
+        download_url = None
+        medias = data.get("medias")
         
-        # Si viene dentro de una lista de medios/links ("medias" o "links")
-        if not download_url and "medias" in data:
-            medias = data["medias"]
-            if isinstance(medias, list) and len(medias) > 0:
-                download_url = medias[0].get("url")
-        
+        if isinstance(medias, list) and len(medias) > 0:
+            # Buscamos el primer enlace de la lista que contenga la URL de descarga
+            download_url = medias[0].get("url")
+        else:
+            # Respuestas alternativas directas
+            download_url = data.get("url") or data.get("video") or data.get("download_url")
+
         if not download_url:
-            # Si la estructura es un poco diferente, intentamos buscar cualquier campo que tenga la URL
-            raise HTTPException(status_code=400, detail="No se encontró un enlace MP4 directo en la respuesta de la API.")
+            raise HTTPException(
+                status_code=400, 
+                detail="Se procesó la solicitud, pero la API no arrojó un enlace .mp4 válido."
+            )
             
         return {
             "title": title,
@@ -74,12 +85,11 @@ async def get_video_info(request: VideoRequest):
         }
         
     except requests.exceptions.JSONDecodeError:
-        raise HTTPException(
-            status_code=502, 
-            detail="Error de formato: La API sigue sin responder en formato JSON limpio."
-        )
+        raise HTTPException(status_code=502, detail="Error de respuesta: Estructura de datos ilegible.")
+    except HTTPException as http_err:
+        raise http_err
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al procesar: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Fallo del sistema: {str(e)}")
 
 @app.get("/")
 async def read_index():
