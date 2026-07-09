@@ -345,34 +345,49 @@
     errorSection.classList.add('is-open');
   }
 
-  // Rellena el selector de calidad si el backend devuelve varias opciones
-  // (data.formats = { "1080p": "https://...", "720p": "https://..." }).
-  // Si solo llega data.download_url, se deja una única opción "original".
-  function populateQualityOptions(data){
+  // RELLENA EL SELECTOR CON LAS CALIDADES DE RAPIDAPI (HD, AUDIO, ETC.)
+   function populateQualityOptions(data){
+    // 1. Limpiamos las opciones anteriores del menú
     qualitySelect.innerHTML = '';
 
-    if (data.formats && typeof data.formats === 'object' && Object.keys(data.formats).length){
-      Object.entries(data.formats).forEach(([label, url]) => {
-        const opt = document.createElement('option');
-        opt.value = url;
-        opt.textContent = label;
-        qualitySelect.appendChild(opt);
+    // 2. Si la API nos entrega una lista con múltiples calidades (Instagram/Facebook)
+    if (data.medias && Array.isArray(data.medias) && data.medias.length > 0){
+      data.medias.forEach(media => {
+        if (media.url) {
+          const opt = document.createElement('option');
+          opt.value = media.url;
+          const resolucion = media.quality || 'Calidad Estándar';
+          const extension = media.extension || 'mp4';
+          opt.textContent = `${resolucion} (${extension})`;
+          qualitySelect.appendChild(opt);
+        }
       });
-      qualitySelect.disabled = false;
-      btnDownloadNow.href = qualitySelect.value;
     } else {
-      const opt = document.createElement('option');
-      opt.value = data.download_url || '#';
-      opt.textContent = 'Calidad original';
-      qualitySelect.appendChild(opt);
-      qualitySelect.disabled = true;
-      btnDownloadNow.href = data.download_url || '#';
+      // 3. Si la API da un link único (TikTok/X), creamos la opción de Video MP4
+      const optVideo = document.createElement('option');
+      optVideo.value = data.download_url || '#';
+      optVideo.textContent = 'Calidad original (MP4)';
+      qualitySelect.appendChild(optVideo);
     }
+
+    // 🎯 FORZAMOS LA OPCIÓN DE AUDIO MP3 AL FINAL DE LA LISTA
+    const optAudio = document.createElement('option');
+    optAudio.value = data.download_url || '#';
+    optAudio.textContent = 'Solo Audio (Audio MP3)';
+    qualitySelect.appendChild(optAudio);
+
+    // 🔥 DESBLOQUEAMOS EL MENÚ PARA QUE SIEMPRE SE PUEDA HACER CLIC
+    qualitySelect.disabled = false;
+    
+    // Dejamos el botón listo apuntando a la primera opción (el video)
+    btnDownloadNow.href = qualitySelect.value;
   }
 
+  // Escucha cuando el usuario cambia de opción en el menú para actualizar el botón de descarga
   qualitySelect.addEventListener('change', () => {
     btnDownloadNow.href = qualitySelect.value;
   });
+
 
   form.addEventListener('submit', async function(e){
     e.preventDefault();
@@ -391,7 +406,6 @@
     requestAnimationFrame(() => processingSection.classList.add('is-open'));
 
     try {
-      // Conexión con el backend (main.py) que hace la extracción real
       const response = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -419,5 +433,6 @@
     }
   });
 </script>
+
 </body>
 </html>
