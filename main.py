@@ -55,7 +55,7 @@ async def get_video_info(request: VideoRequest):
         formatos_filtrados = []
         
         if isinstance(lista_calidades, list) and len(lista_calidades) > 0:
-            # 🕵️‍♂️ FILTRADO SEGURO DE CÓDECS (Evita AV1 y formatos rotos)
+            # 🕵️‍♂️ FILTRADO SEGURO DE CÓDECS (Evita AV1 que deja la pantalla negra)
             for media in lista_calidades:
                 if not isinstance(media, dict):
                     continue
@@ -66,14 +66,14 @@ async def get_video_info(request: VideoRequest):
                 if not url_formato:
                     continue
                     
-                # Si el formato es AV1 (deja pantalla negra en celulares), lo saltamos
+                # Si el formato es AV1 (da error de pantalla negra en cels), lo saltamos
                 if "av1" in quality or "av01" in quality:
                     continue
                 
                 # Guardamos el formato en nuestra lista limpia de MP4 seguros
                 formatos_filtrados.append(media)
             
-            # Si nos quedaron formatos limpios tras el filtro, extraemos el primero
+            # 🔥 CORRECCIÓN DEFINITIVA: Usamos los corchetes [0] para el primer elemento
             if formatos_filtrados:
                 download_url = formatos_filtrados[0].get("url")
         
