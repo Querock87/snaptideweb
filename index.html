@@ -375,19 +375,27 @@
   }
 
   // RELLENA EL SELECTOR CON LAS CALIDADES DE RAPIDAPI (HD, AUDIO, ETC.)
-   function populateQualityOptions(data){
+  function populateQualityOptions(data){
     // 1. Limpiamos las opciones anteriores del menú
     qualitySelect.innerHTML = '';
 
-    // 2. Si la API nos entrega una lista con múltiples calidades (Instagram/Facebook)
+    // 2. Si la API nos entrega una lista con múltiples calidades
     if (data.medias && Array.isArray(data.medias) && data.medias.length > 0){
       data.medias.forEach(media => {
         if (media.url) {
           const opt = document.createElement('option');
           opt.value = media.url;
-          const resolucion = media.quality || 'Calidad Estándar';
-          const extension = media.extension || 'mp4';
-          opt.textContent = `${resolucion} (${extension})`;
+          
+          let resolucion = media.quality || 'Estándar';
+          let extension = media.extension || 'mp4';
+          
+          // AVISO INTELIGENTE: Si el usuario pega algo de YouTube, le avisamos que los formatos HD de la lista son mudos
+          if (data.download_url.includes('googlevideo') || resolucion.includes('1080') || resolucion.includes('720')) {
+             opt.textContent = `${resolucion} (${extension}) - [Solo Video / Sin Audio]`;
+          } else {
+             opt.textContent = `${resolucion} (${extension})`;
+          }
+          
           qualitySelect.appendChild(opt);
         }
       });
@@ -395,20 +403,20 @@
       // 3. Si la API da un link único (TikTok/X), creamos la opción de Video MP4
       const optVideo = document.createElement('option');
       optVideo.value = data.download_url || '#';
-      optVideo.textContent = 'Calidad original (MP4)';
+      optVideo.textContent = 'Video HD Original (MP4)';
       qualitySelect.appendChild(optVideo);
     }
 
-    // 🎯 FORZAMOS LA OPCIÓN DE AUDIO MP3 AL FINAL DE LA LISTA
+    // 🎯 NUEVO NOMBRE CLARO: Cambiamos el texto para que el usuario sepa que esta opción SÍ trae audio en YouTube
     const optAudio = document.createElement('option');
     optAudio.value = data.download_url || '#';
-    optAudio.textContent = 'Solo Audio (Audio MP3)';
+    optAudio.textContent = 'Video Estándar con Audio Completo (MP4)';
     qualitySelect.appendChild(optAudio);
 
-    // 🔥 DESBLOQUEAMOS EL MENÚ PARA QUE SIEMPRE SE PUEDA HACER CLIC
+    // Desbloqueamos el menú para que siempre se pueda hacer clic
     qualitySelect.disabled = false;
     
-    // Dejamos el botón listo apuntando a la primera opción (el video)
+    // Dejamos el botón listo apuntando a la primera opción
     btnDownloadNow.href = qualitySelect.value;
   }
 
