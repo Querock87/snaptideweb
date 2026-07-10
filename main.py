@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 REEMPLAZA ESTO: Tu clave exacta y limpia de RapidAPI (sin la T al principio)
+# 🔑 REEMPLAZA ESTO: Tu clave exacta (la que se ve en tu captura de RapidAPI)
 RAPIDAPI_KEY = "d4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
 
 class VideoRequest(BaseModel):
@@ -25,10 +25,11 @@ class VideoRequest(BaseModel):
 async def get_video_info(request: VideoRequest):
     url_usuario = request.url.strip()
     
+    # 🎯 ENDPOINT EXACTO DE TU CAPTURA DE PANTALLA
     api_url = "https://rapidapi.com"
     
     headers = {
-        "x-rapidapi-key": RAPIDAPI_KEY.replace('"', '').replace("'", "").strip(),
+        "x-rapidapi-key": RAPIDAPI_KEY.strip(),
         "x-rapidapi-host": "://rapidapi.com",
         "Content-Type": "application/json"
     }
@@ -74,12 +75,10 @@ async def get_video_info(request: VideoRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo del sistema: {str(e)}")
 
-# RUTA DEL FAVICON: Entrega el logo de la pestaña al navegador
 @app.get("/favicon.png")
 async def get_favicon():
     return FileResponse('favicon.png')
 
-# RUTA DEL INDEX: Muestra tu página web principal
 @app.get("/")
 async def read_index():
     return FileResponse('index.html')
