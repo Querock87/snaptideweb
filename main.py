@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 REEMPLAZA ESTO: Tu clave limpia (la que empieza con d4055f... en tu captura)
+# 🔑 REEMPLAZA ESTO: Tu clave limpia (la que se ve en tus capturas)
 RAPIDAPI_KEY = "d4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
 
 class VideoRequest(BaseModel):
@@ -46,23 +46,25 @@ async def get_video_info(request: VideoRequest):
             
         data = response.json()
         
-        # 🎯 EXTRACCIÓN DIRECTA DESDE LA RAÍZ DEL JSON
-        # Esta API entrega los links principales directamente en la base del objeto
-        download_url = data.get("url") or data.get("video") or data.get("download_url")
-        title = data.get("title") or data.get("caption") or data.get("description") or "Video Detectado"
+        # 🎯 EXTRACCIÓN DE ACUERDO A TU CAPTURA DE POSTMAN
+        title = data.get("title") or data.get("caption") or "Video Detectado"
         thumbnail = data.get("thumbnail") or data.get("cover") or "https://placeholder.com"
         
-        # Guardamos calidades secundarias si existieran
         lista_calidades = data.get("medias") or []
+        download_url = None
         
-        # Si la URL principal no apareció arriba pero sí hay datos en 'medias', la extraemos de ahí
-        if not download_url and isinstance(lista_calidades, list) and len(lista_calidades) > 0:
-            primer_elemento = lista_calidades[0]
+        # Corrección crítica: Extraemos el primer objeto diccionario de la lista de calidades
+        if isinstance(lista_calidades, list) and len(lista_calidades) > 0:
+            primer_elemento = lista_calidades[0] # <-- Tomamos el primer elemento real [0]
             if isinstance(primer_elemento, dict):
-                download_url = primer_elemento.get("url") or primer_elemento.get("video")
+                download_url = primer_elemento.get("url")
+        
+        # Si no vino en la lista, usamos la URL raíz de respaldo
+        if not download_url:
+            download_url = data.get("url")
 
         if not download_url:
-            raise HTTPException(status_code=400, detail="La API no devolvió una URL válida de descarga para este video.")
+            raise HTTPException(status_code=400, detail="No se localizó una URL de descarga válida en la API.")
             
         return {
             "title": title,
@@ -72,11 +74,11 @@ async def get_video_info(request: VideoRequest):
         }
         
     except requests.exceptions.JSONDecodeError:
-        raise HTTPException(status_code=502, detail="Error de procesamiento: La API no envió un formato legible.")
+        raise HTTPException(status_code=502, detail="Error de respuesta: Estructura ilegible de la API.")
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fallo de servidor: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Fallo del sistema: {str(e)}")
 
 @app.get("/favicon.png")
 async def get_favicon():
