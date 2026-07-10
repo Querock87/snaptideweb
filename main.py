@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 REEMPLAZA ESTO: Tu clave exacta de RapidAPI (la que empieza con d4055f...)
+# 🔑 REEMPLAZA ESTO: Tu clave limpia (la que se ve en tus capturas)
 RAPIDAPI_KEY = "d4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
 
 class VideoRequest(BaseModel):
@@ -25,11 +25,11 @@ class VideoRequest(BaseModel):
 async def get_video_info(request: VideoRequest):
     url_usuario = request.url.strip()
     
-    api_url = "https://rapidapi.com"
+    api_url = "https://auto-download-all-in-one.p.rapidapi.com/v1/social/autolink"
     
     headers = {
         "x-rapidapi-key": RAPIDAPI_KEY.replace('"', '').replace("'", "").strip(),
-        "x-rapidapi-host": "://rapidapi.com",
+        "x-rapidapi-host": "auto-download-all-in-one.p.rapidapi.com",
         "Content-Type": "application/json"
     }
     
@@ -46,49 +46,31 @@ async def get_video_info(request: VideoRequest):
             
         data = response.json()
         
-        # Extracción base desde tu captura de Postman
+        # 🎯 EXTRACCIÓN DE ACUERDO A TU CAPTURA DE POSTMAN
         title = data.get("title") or data.get("caption") or "Video Detectado"
         thumbnail = data.get("thumbnail") or data.get("cover") or "https://placeholder.com"
         
         lista_calidades = data.get("medias") or []
         download_url = None
-        formatos_filtrados = []
         
+        # Corrección crítica: Extraemos el primer objeto diccionario de la lista de calidades
         if isinstance(lista_calidades, list) and len(lista_calidades) > 0:
-            # 🕵️‍♂️ FILTRADO SEGURO DE CÓDECS (Evita AV1 que deja la pantalla negra)
-            for media in lista_calidades:
-                if not isinstance(media, dict):
-                    continue
-                
-                url_formato = media.get("url")
-                quality = str(media.get("quality", "")).lower()
-                
-                if not url_formato:
-                    continue
-                    
-                # Si el formato es AV1 (da error de pantalla negra en cels), lo saltamos
-                if "av1" in quality or "av01" in quality:
-                    continue
-                
-                # Guardamos el formato en nuestra lista limpia de MP4 seguros
-                formatos_filtrados.append(media)
-            
-            # 🔥 CORRECCIÓN DEFINITIVA: Usamos los corchetes [0] para el primer elemento
-            if formatos_filtrados:
-                download_url = formatos_filtrados[0].get("url")
+            primer_elemento = lista_calidades[0] # <-- Tomamos el primer elemento real [0]
+            if isinstance(primer_elemento, dict):
+                download_url = primer_elemento.get("url")
         
-        # Si la lista vino vacía o no hallamos el enlace en el filtro, usamos el enlace raíz de la API
+        # Si no vino en la lista, usamos la URL raíz de respaldo
         if not download_url:
-            download_url = data.get("url") or data.get("video")
+            download_url = data.get("url")
 
         if not download_url:
-            raise HTTPException(status_code=400, detail="No se localizó una URL de descarga compatible en la API.")
+            raise HTTPException(status_code=400, detail="No se localizó una URL de descarga válida en la API.")
             
         return {
             "title": title,
             "thumbnail": thumbnail,
             "download_url": download_url,
-            "medias": formatos_filtrados if formatos_filtrados else lista_calidades
+            "medias": lista_calidades if isinstance(lista_calidades, list) else []
         }
         
     except requests.exceptions.JSONDecodeError:
