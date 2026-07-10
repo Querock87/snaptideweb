@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔑 REEMPLAZA ESTO: Tu clave limpia de RapidAPI
+# 🔑 REEMPLAZA ESTO: Tu clave exacta de RapidAPI (la que empieza con d4055f...)
 RAPIDAPI_KEY = "d4055fc609mshc798e684649e1dfp15e096jsn072162488ad6"
 
 class VideoRequest(BaseModel):
@@ -46,6 +46,7 @@ async def get_video_info(request: VideoRequest):
             
         data = response.json()
         
+        # Extracción base desde tu captura de Postman
         title = data.get("title") or data.get("caption") or "Video Detectado"
         thumbnail = data.get("thumbnail") or data.get("cover") or "https://placeholder.com"
         
@@ -54,38 +55,34 @@ async def get_video_info(request: VideoRequest):
         formatos_filtrados = []
         
         if isinstance(lista_calidades, list) and len(lista_calidades) > 0:
-            # 🕵️‍♂️ FILTRADO INTELIGENTE DE CÓDECS Y AUDIO
+            # 🕵️‍♂️ FILTRADO SEGURO DE CÓDECS (Evita AV1 y formatos rotos)
             for media in lista_calidades:
                 if not isinstance(media, dict):
                     continue
                 
                 url_formato = media.get("url")
                 quality = str(media.get("quality", "")).lower()
-                extension = str(media.get("extension", "")).lower()
                 
-                # Candado 1: Saltarnos los formatos AV1 que dejan la pantalla negra
-                if "av1" in quality or "av01" in quality:
+                if not url_formato:
                     continue
                     
-                # Candado 2: Asegurarnos de que el formato contenga video y audio juntos (o que sea la opción HD nativa)
-                # Si la API marca explícitamente formatos "video only" o mudo, los saltamos
-                if "watermark" in quality: # Priorizamos las opciones sin marca de agua si vienen marcadas
-                    download_url = url_formato
+                # Si el formato es AV1 (deja pantalla negra en celulares), lo saltamos
+                if "av1" in quality or "av01" in quality:
+                    continue
                 
-                # Guardamos el formato en nuestra lista limpia si es seguro (MP4)
+                # Guardamos el formato en nuestra lista limpia de MP4 seguros
                 formatos_filtrados.append(media)
             
-            # Si filtramos formatos con éxito, agarramos el mejor disponible que tenga audio
+            # Si nos quedaron formatos limpios tras el filtro, extraemos el primero
             if formatos_filtrados:
-                # Buscamos el primero de la lista limpia (suele ser la mejor calidad compatible)
                 download_url = formatos_filtrados[0].get("url")
         
-        # Si la lista vino vacía o falló el filtro, usamos la URL raíz de respaldo de la API
+        # Si la lista vino vacía o no hallamos el enlace en el filtro, usamos el enlace raíz de la API
         if not download_url:
             download_url = data.get("url") or data.get("video")
 
         if not download_url:
-            raise HTTPException(status_code=400, detail="No se localizó una URL de descarga compatible.")
+            raise HTTPException(status_code=400, detail="No se localizó una URL de descarga compatible en la API.")
             
         return {
             "title": title,
